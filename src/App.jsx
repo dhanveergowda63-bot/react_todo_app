@@ -69,17 +69,22 @@ function LoginPage({ onLogin }) {
 function TodoPage({ user, onLogout }) {
   const [todos, setTodos] = useState(readTodos);
   const [input, setInput] = useState('');
+  const [description, setDescription] = useState('');
+  const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
   const [error, setError] = useState('');
 
   useEffect(() => localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(todos)), [todos]);
 
   const remaining = todos.filter((todo) => !todo.completed).length;
+  const completed = todos.length - remaining;
+  const progress = todos.length ? Math.round((completed / todos.length) * 100) : 0;
   const visibleTodos = useMemo(() => todos.filter((todo) => {
-    if (filter === 'Active') return !todo.completed;
-    if (filter === 'Completed') return todo.completed;
-    return true;
-  }), [todos, filter]);
+    const matchesFilter = filter === 'Active' ? !todo.completed : filter === 'Completed' ? todo.completed : true;
+    const query = search.trim().toLowerCase();
+    const matchesSearch = !query || `${todo.title} ${todo.description || ''}`.toLowerCase().includes(query);
+    return matchesFilter && matchesSearch;
+  }), [todos, filter, search]);
 
   function addTodo(event) {
     event.preventDefault();
@@ -88,8 +93,9 @@ function TodoPage({ user, onLogout }) {
       setError('Write a task before adding it.');
       return;
     }
-    setTodos((current) => [{ id: `${Date.now()}-${Math.random()}`, title, completed: false }, ...current]);
+    setTodos((current) => [{ id: `${Date.now()}-${Math.random()}`, title, description: description.trim(), completed: false }, ...current]);
     setInput('');
+    setDescription('');
     setError('');
   }
 
@@ -113,13 +119,21 @@ function TodoPage({ user, onLogout }) {
         <div className="greeting-row"><div><p className="eyebrow">YOUR SPACE, YOUR PACE</p><h1>Good things take<br /><em>one step at a time.</em></h1></div><div className="date-chip"><span className="date-spark">✳</span><span>MAKE TODAY<br /><strong>COUNT</strong></span></div></div>
         <form className="add-form" onSubmit={addTodo}>
           <span className="add-plus" aria-hidden="true">＋</span>
-          <input aria-label="New todo" value={input} onChange={(event) => { setInput(event.target.value); setError(''); }} placeholder="What would you like to get done?" />
+          <div className="add-fields">
+            <input aria-label="New task" value={input} onChange={(event) => { setInput(event.target.value); setError(''); }} placeholder="What would you like to get done?" />
+            <textarea aria-label="Task description" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Add details or notes (optional)" rows="2" />
+          </div>
           <button className="primary-button add-button" type="submit">Add task <span aria-hidden="true">→</span></button>
         </form>
         {error && <p className="form-error todo-error" role="alert">{error}</p>}
+        <section className="progress-panel" aria-label="Overall task progress">
+          <div className="progress-copy"><div><p className="progress-label">OVERALL PROGRESS</p><p className="progress-summary"><strong>{completed}</strong> of {todos.length} {todos.length === 1 ? 'task' : 'tasks'} completed</p></div><strong className="progress-percent">{progress}%</strong></div>
+          <div className="progress-track" role="progressbar" aria-label="Tasks completed" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div>
+        </section>
         <section className="list-panel" aria-label="Todo list">
           <div className="list-heading"><div><h2>Your list <span className="task-count">{todos.length}</span></h2><p>A little progress is still progress.</p></div><div className="filters" role="tablist" aria-label="Filter tasks">{['All', 'Active', 'Completed'].map((option) => <button key={option} className={filter === option ? 'filter active-filter' : 'filter'} role="tab" aria-selected={filter === option} onClick={() => setFilter(option)}>{option}</button>)}</div></div>
-          {visibleTodos.length ? <ul className="todo-list">{visibleTodos.map((todo) => <li className={todo.completed ? 'todo-item is-complete' : 'todo-item'} key={todo.id}><button className="check-button" aria-label={todo.completed ? `Mark ${todo.title} as active` : `Mark ${todo.title} as completed`} aria-pressed={todo.completed} onClick={() => toggleTodo(todo.id)}>{todo.completed && <span aria-hidden="true">✓</span>}</button><span className="todo-title">{todo.title}</span><button className="delete-button" aria-label={`Delete ${todo.title}`} onClick={() => deleteTodo(todo.id)}>×</button></li>)}</ul> : <div className="empty-state"><div className="empty-icon">✳</div><h3>{filter === 'All' ? 'A fresh page.' : `No ${filter.toLowerCase()} tasks.`}</h3><p>{filter === 'All' ? 'Add a task above and give your day a starting point.' : 'Try another filter or add something new.'}</p></div>}
+          <div className="search-row"><span aria-hidden="true">⌕</span><input type="search" aria-label="Search tasks" placeholder="Search tasks and descriptions" value={search} onChange={(event) => setSearch(event.target.value)} /></div>
+          {visibleTodos.length ? <ul className="todo-list">{visibleTodos.map((todo) => <li className={todo.completed ? 'todo-item is-complete' : 'todo-item'} key={todo.id}><button className="check-button" aria-label={todo.completed ? `Mark ${todo.title} as active` : `Mark ${todo.title} as completed`} aria-pressed={todo.completed} onClick={() => toggleTodo(todo.id)}>{todo.completed && <span aria-hidden="true">✓</span>}</button><div className="todo-copy"><span className="todo-title">{todo.title}</span><p className="todo-description">{todo.description || 'No description added.'}</p></div><button className="delete-button" aria-label={`Delete ${todo.title}`} onClick={() => deleteTodo(todo.id)}>×</button></li>)}</ul> : <div className="empty-state"><div className="empty-icon">✳</div><h3>{search ? 'No matching tasks.' : filter === 'All' ? 'A fresh page.' : `No ${filter.toLowerCase()} tasks.`}</h3><p>{search ? 'Try a different search or clear the search field.' : filter === 'All' ? 'Add a task above and give your day a starting point.' : 'Try another filter or add something new.'}</p></div>}
           <footer className="list-footer"><span><strong>{remaining}</strong> {remaining === 1 ? 'task' : 'tasks'} left to do</span><span className="footer-flourish">made for the little wins <b>✳</b></span></footer>
         </section>
       </section>
